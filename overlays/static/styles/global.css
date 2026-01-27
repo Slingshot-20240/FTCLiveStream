@@ -1,0 +1,37 @@
+@font-face {
+	font-family: InterVariable;
+	src: url(/InterVariable.ttf);
+}
+
+:root,
+* {
+	font-family: 'Inter Variable', 'InterVariable', InterVariable;
+	font-feature-settings:
+		'liga' 1,
+		'calt' 1;
+}
+
+:root,
+body,
+* {
+	margin: 0;
+	padding: 0;
+	background-color: #0000;
+}
+
+* {
+	box-sizing: border-box;
+	user-select: none;
+}
+
+.zstack {
+	position: relative;
+
+	& > * {
+		position: absolute;
+	}
+}
+
+.hidden {
+	opacity: 0;
+}
