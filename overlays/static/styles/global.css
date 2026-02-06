@@ -16,6 +16,10 @@ body,
 * {
 	margin: 0;
 	padding: 0;
+}
+
+:root,
+body {
 	background-color: #0000;
 }
 
