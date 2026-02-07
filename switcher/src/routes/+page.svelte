@@ -12,6 +12,7 @@
 	let field1Url = $state('');
 	let field2Url = $state('');
 
+	
 	// derived: are we in test mode (no urls) or live mode (urls provided)
 	let isLive = $derived(field1Url.trim() !== '' && field2Url.trim() !== '');
 
