@@ -8,10 +8,13 @@
 	let interval: NodeJS.Timeout;
 	let fps = 30;
 
+	let massiveMargin = false;
+
 	onMount(async () => {
 		const params = new URLSearchParams(location.search);
 		const url = params.get('url');
 		fps = +(params.get('fps') || fps);
+		massiveMargin = params.get('mm') === 'true';
 
 		if (!url) {
 			alert(`Please enter a URL in the "url" query parameter, e.g. "?url=rtmp://localhost/live"`);
@@ -24,7 +27,8 @@
 		if (mpegts.isSupported()) {
 			player = mpegts.createPlayer({
 				type: 'mpegts',
-				url: url
+				url: url,
+				isLive: true,
 			});
 
 			player.attachMediaElement(video);
@@ -55,7 +59,7 @@
 <div id="frame">
 	<div id="content">
 		<video bind:this={video} playsinline></video>
-		<button on:click={playPause}>Play / Pause</button>
+		<button on:click={playPause} class:massive-margin={massiveMargin}>Play / Pause</button>
 		<div>
 			<button on:click={() => offset(-fps / 6)}>← {fps / 6} F</button>
 			<button on:click={() => offset(-1)}>← 1 F</button>
@@ -107,6 +111,10 @@
 			button {
 				width: 100%;
 				font-size: 2vw;
+			}
+
+			.massive-margin {
+				margin-top: 12vw;
 			}
 		}
 	}

@@ -2,20 +2,15 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 
-	// check URL params for OBS mode and preset URLs
-	const urlParams = browser ? new URLSearchParams(window.location.search) : null;
-	const obsMode = urlParams?.get('obs') === '1';
-	const presetField1 = urlParams?.get('field1') ?? '';
-	const presetField2 = urlParams?.get('field2') ?? '';
-
 	// config
+	let obsMode: boolean = true;
 	const RESULTS_DELAY_MS = 20_000;
-	const TRANSITION_DURATION_MS = 500;
-	const WS_URL = urlParams?.get('ws') ?? 'ws://localhost:8080';
+	const TRANSITION_DURATION_MS = 1000;
+	let WS_URL: string = '';
 
 	// camera urls - editable via UI or preset via URL params
-	let field1Url = $state(presetField1);
-	let field2Url = $state(presetField2);
+	let field1Url = $state('');
+	let field2Url = $state('');
 
 	// derived: are we in test mode (no urls) or live mode (urls provided)
 	let isLive = $derived(field1Url.trim() !== '' && field2Url.trim() !== '');
@@ -33,7 +28,7 @@
 	let timerDisplay = $state<number>(0);
 	let logs = $state<string[]>([]);
 	let cameraRefs: Record<string, HTMLElement | null> = {};
-	let showPanel = $state(!obsMode); 
+	let showPanel = $state(!obsMode);
 
 	function addLog(msg: string) {
 		const time = new Date().toLocaleTimeString();
@@ -61,7 +56,7 @@
 	// does the actual camera switch with fade transition
 	function switchTo(targetField: string) {
 		addLog(`switchTo called: target=${targetField}, active=${activeCamera}`);
-		
+
 		if (targetField === activeCamera) {
 			addLog(`Already on ${targetField}, skipping`);
 			return;
@@ -87,7 +82,7 @@
 			targetEl.style.transition = 'none';
 			targetEl.style.zIndex = '1';
 			targetEl.style.opacity = '1';
-			void targetEl.offsetWidth; 
+			void targetEl.offsetWidth;
 		}
 
 		// fade out current
@@ -107,7 +102,7 @@
 
 	function handleSwitchWithDelay(targetField: string) {
 		addLog(`handleSwitchWithDelay: target=${targetField}`);
-		
+
 		if (pendingSwitchTimeout !== null) {
 			clearTimeout(pendingSwitchTimeout);
 			pendingSwitchTimeout = null;
@@ -116,7 +111,7 @@
 
 		const delay = msUntilResultsDelayExpires();
 		addLog(`Delay remaining: ${delay}ms`);
-		
+
 		if (delay === 0) {
 			switchTo(targetField);
 		} else {
@@ -132,28 +127,28 @@
 	// for test panel - broadcast to all tabs so they stay in sync
 	let wsRef: WebSocket | null = null;
 	let broadcastChannel: BroadcastChannel | null = null;
-	
+
 	function sendMessage(type: string) {
-		// send via websocket if connected (server will broadcast to all WS clients)
-		if (wsRef && wsRef.readyState === WebSocket.OPEN) {
-			wsRef.send(JSON.stringify({ type }));
-			addLog(`Sent via WS: ${type}`);
-		} else {
-			// no websocket - broadcast to other tabs and handle locally
-			broadcastChannel?.postMessage({ type, source: 'local' });
-			addLog(`Broadcast: ${type}`);
-			handleMessageType(type);
-		}
+		// // send via websocket if connected (server will broadcast to all WS clients)
+		// if (wsRef && wsRef.readyState === WebSocket.OPEN) {
+		// 	wsRef.send(JSON.stringify({ type, field: getOtherField().replace('field', '') }));
+		// 	addLog(`Sent via WS: ${type}`);
+		// } else {
+		// 	// no websocket - broadcast to other tabs and handle locally
+		broadcastChannel?.postMessage({ type, source: 'local' });
+		addLog(`Broadcast: ${type}`);
+		handleMessageType(type, getOtherField());
+		// }
 	}
 
 	// get the other field (not currently active)
 	function getOtherField(): string {
 		const fields = Object.keys(CAMERA_COLORS);
-		return fields.find(f => f !== activeCamera) ?? fields[0];
+		return fields.find((f) => f !== activeCamera) ?? fields[0];
 	}
 
 	// core message handling logic
-	function handleMessageType(msgType: string) {
+	function handleMessageType(msgType: string, field?: string) {
 		switch (msgType) {
 			case 'SHOW_RESULTS':
 				resultsShownAt = Date.now();
@@ -162,7 +157,7 @@
 
 			case 'SHOW_PREVIEW':
 			case 'SHOW_RANDOM':
-				handleSwitchWithDelay(getOtherField());
+				handleSwitchWithDelay(isLive ? field || getOtherField() : getOtherField());
 				break;
 
 			case 'SHOW_MATCH':
@@ -173,7 +168,7 @@
 					addLog('Cancelled pending switch');
 				}
 				resultsShownAt = null;
-				switchTo(getOtherField());
+				switchTo(isLive ? field || getOtherField() : getOtherField());
 				break;
 
 			default:
@@ -183,17 +178,17 @@
 
 	// handle WebSocket message - parse and broadcast to other tabs
 	function handleWsMessage(event: MessageEvent) {
-		let data: { type?: string };
+		let data: { type?: string; field?: string };
 		try {
 			data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 		} catch {
 			return;
 		}
 		if (!data.type) return;
-		
+
 		// broadcast to other tabs
 		broadcastChannel?.postMessage({ type: data.type, source: 'ws' });
-		handleMessageType(data.type);
+		handleMessageType(data.type, `field${data.field}`);
 	}
 
 	// handle BroadcastChannel message from another tab
@@ -215,6 +210,12 @@
 	}
 
 	onMount(() => {
+		const urlParams = new URLSearchParams(location.search);
+		obsMode = urlParams.get('obs') === 'true';
+		field1Url = decodeURIComponent(urlParams.get('field1') ?? '');
+		field2Url = decodeURIComponent(urlParams.get('field2') ?? '');
+		WS_URL = urlParams.get('ws') ?? 'ws://localhost/stream/display/command/?code=ustxcrlt1';
+
 		// init cameras after a short delay to ensure refs are bound
 		setTimeout(initCameras, 100);
 
@@ -226,7 +227,7 @@
 
 		// keyboard shortcut to toggle panel
 		function handleKeydown(e: KeyboardEvent) {
-			if (e.key === 'Tab') {
+			if (e.key === '.') {
 				e.preventDefault();
 				showPanel = !showPanel;
 			}
@@ -258,7 +259,9 @@
 			}
 		}
 
-		addLog('Switcher initialized' + (isLive ? '' : ' (TEST MODE)') + (WS_URL ? '' : ' - no WebSocket'));
+		addLog(
+			'Switcher initialized' + (isLive ? '' : ' (TEST MODE)') + (WS_URL ? '' : ' - no WebSocket')
+		);
 
 		return () => {
 			wsRef?.close();
@@ -317,41 +320,49 @@
 </div>
 
 {#if showPanel}
-<div class="control-panel">
-	<b>Camera Switcher</b> <small style="color: #888">(Tab to hide)</small>
-	<hr>
-	<div>
-		<label>Field 1 URL:<br>
-			<input type="text" bind:value={field1Url} placeholder="https://..." style="width: 250px">
-		</label>
+	<div class="control-panel">
+		<b>Camera Switcher</b> <small style="color: #888">(Tab to hide)</small>
+		<hr />
+		<div>
+			<label
+				>Field 1 URL:<br />
+				<input type="text" bind:value={field1Url} placeholder="https://..." style="width: 250px" />
+			</label>
+		</div>
+		<div>
+			<label
+				>Field 2 URL:<br />
+				<input type="text" bind:value={field2Url} placeholder="https://..." style="width: 250px" />
+			</label>
+		</div>
+		<div style="margin-top: 5px; color: {isLive ? 'green' : 'gray'}">
+			{isLive ? '● Live mode' : '○ Test mode (add URLs to go live)'}
+		</div>
+		<hr />
+		<div>
+			Active: {activeCamera} | Timer: {timerDisplay > 0 ? `${timerDisplay}s` : 'Off'}
+		</div>
+		<hr />
+		<div>
+			<button onclick={() => sendMessage('SHOW_RESULTS')}>SHOW_RESULTS</button>
+			<button onclick={() => sendMessage('SHOW_PREVIEW')}>SHOW_PREVIEW</button>
+			<button onclick={() => sendMessage('SHOW_RANDOM')}>SHOW_RANDOM</button>
+			<button onclick={() => sendMessage('SHOW_MATCH')}>SHOW_MATCH</button>
+			<button onclick={() => sendMessage('START_MATCH')}>START_MATCH</button>
+		</div>
+		<hr />
+		<div>Log:</div>
+		<pre class="log-box">{logs.join('\n')}</pre>
 	</div>
-	<div>
-		<label>Field 2 URL:<br>
-			<input type="text" bind:value={field2Url} placeholder="https://..." style="width: 250px">
-		</label>
-	</div>
-	<div style="margin-top: 5px; color: {isLive ? 'green' : 'gray'}">
-		{isLive ? '● Live mode' : '○ Test mode (add URLs to go live)'}
-	</div>
-	<hr>
-	<div>
-		Active: {activeCamera} | Timer: {timerDisplay > 0 ? `${timerDisplay}s` : 'Off'}
-	</div>
-	<hr>
-	<div>
-		<button onclick={() => sendMessage('SHOW_RESULTS')}>SHOW_RESULTS</button>
-		<button onclick={() => sendMessage('SHOW_PREVIEW')}>SHOW_PREVIEW</button>
-		<button onclick={() => sendMessage('SHOW_RANDOM')}>SHOW_RANDOM</button>
-		<button onclick={() => sendMessage('SHOW_MATCH')}>SHOW_MATCH</button>
-		<button onclick={() => sendMessage('START_MATCH')}>START_MATCH</button>
-	</div>
-	<hr>
-	<div>Log:</div>
-	<pre class="log-box">{logs.join('\n')}</pre>
-</div>
 {/if}
 
 <style>
+	:global(:root, body) {
+		margin: 0;
+		padding: 0;
+		background: #0000;
+	}
+
 	.camera-container {
 		position: relative;
 		width: 100vw;
