@@ -20,6 +20,13 @@
 	let tieVideo: HTMLVideoElement;
 	let displayResultsVideo = DisplayResultsVideo.NONE as DisplayResultsVideo;
 
+	let grace = true;
+	let latestMessage: any;
+
+	let ftcliveTs = Date.now();
+	let localMs = performance.now();
+	let timeSyncId = 0;
+
 	onMount(() => {
 		matchStartAudio = new Audio(audios.matchStart);
 		autoEndAudio = new Audio(audios.autoEnd);
@@ -48,7 +55,83 @@
 		blueWinsVideo.load();
 		redWinsVideo.load();
 		tieVideo.load();
+
+		const params = new URLSearchParams(location.search);
+		const wsUrl = params.get('ws');
+
+		if (!wsUrl) {
+			alert('FTCLive WebSocket URL not provided. Please provide a "ws" query parameter.');
+			return;
+		}
+
+		let ws = new WebSocket(wsUrl);
+
+		ws.onopen = () => {
+			grace = true;
+			setTimeout(() => {
+				grace = false;
+				messageHandler({
+					data: JSON.stringify(latestMessage)
+				} as MessageEvent);
+			}, 100);
+
+			ws.send(`TIMESYNC:{"jsonrpc":"2.0","id":${timeSyncId},"method":"timesync"}`);
+			setInterval(() => {
+				timeSyncId++;
+				ws.send(`TIMESYNC:{"jsonrpc":"2.0","id":${timeSyncId},"method":"timesync"}`);
+			}, 30000);
+		};
+
+		ws.onmessage = messageHandler;
+
+		ws.onclose = () => {
+			location.reload();
+		};
 	});
+
+	function messageHandler(event: MessageEvent) {
+		let data = event.data as string;
+
+		if (data.startsWith('TIMESYNC:')) {
+			const message = JSON.parse(data.replace('TIMESYNC:', ''));
+			if (message.result) {
+				ftcliveTs = message.result;
+				localMs = performance.now();
+				console.log(`Time sync: ftcliveTs=${ftcliveTs}, localMs=${localMs}`);
+			}
+			return;
+		}
+		const message = JSON.parse(event.data);
+
+		if (
+			![
+				'SHOW_PREVIEW',
+				'SHOW_MATCH',
+				'START_MATCH',
+				'SCORE_UPDATE',
+				'ABORT_MATCH',
+				'SHOW_RESULTS'
+			].includes(message.type)
+		) {
+			return;
+		}
+
+		console.log(message);
+
+		if (message.index >= (latestMessage?.index || 0)) {
+			latestMessage = message;
+		}
+
+		if (grace) {
+			return;
+		}
+
+		console.log('processed message', message);
+	}
+
+	function ts() {
+		return ftcliveTs + (performance.now() - localMs);
+	}
 </script>
 
 <!-- svelte-ignore a11y_missing_attribute -->
