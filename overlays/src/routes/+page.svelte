@@ -2,8 +2,18 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
-	import { DisplayResultsVideo } from '$lib/types';
+	import {
+		createInfoFromMessage,
+		createScoresFromMessage,
+		DisplayResultsVideo,
+		type Info,
+		type Scores
+	} from '$lib/types';
 	import { layers, audios, videos } from '$lib/assets';
+	import { BannerState, MatchState, ResultsState, State } from '$lib/states';
+
+	import MatchStateBaseBanners from '$lib/MatchStateBaseBanners.svelte';
+	import Timer from '$lib/Timer.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -21,11 +31,25 @@
 	let displayResultsVideo = DisplayResultsVideo.NONE as DisplayResultsVideo;
 
 	let grace = true;
-	let latestMessage: any;
+	let latestInfoMessage: any;
+	let latestScoresResultsMessage: any;
+
+	let state: State;
+	let matchState: MatchState;
+	let resultsState: ResultsState;
+	let bannerState: BannerState;
+
+	let info: Info | null = null;
+	let scores: Scores | null = null;
+	let results: Scores | null = null;
 
 	let ftcliveTs = Date.now();
 	let localMs = performance.now();
 	let timeSyncId = 0;
+
+	let timer = 0;
+	let interval: NodeJS.Timeout | undefined;
+	let timeouts: NodeJS.Timeout[] = [];
 
 	onMount(() => {
 		matchStartAudio = new Audio(audios.matchStart);
@@ -57,13 +81,22 @@
 		tieVideo.load();
 
 		const params = new URLSearchParams(location.search);
-		const wsUrl = params.get('ws');
+		const host = params.get('host');
+		const eventCode = params.get('eventCode');
 
-		if (!wsUrl) {
-			alert('FTCLive WebSocket URL not provided. Please provide a "ws" query parameter.');
+		if (!host) {
+			alert('FTCLive WebSocket host not provided. Please provide a "host" query parameter.');
 			return;
 		}
 
+		if (!eventCode) {
+			alert(
+				'FTCLive WebSocket event code not provided. Please provide an "eventCode" query parameter.'
+			);
+			return;
+		}
+
+		const wsUrl = `ws://${host}/stream/display/command/?code=${eventCode}`;
 		let ws = new WebSocket(wsUrl);
 
 		ws.onopen = () => {
@@ -71,7 +104,10 @@
 			setTimeout(() => {
 				grace = false;
 				messageHandler({
-					data: JSON.stringify(latestMessage)
+					data: JSON.stringify(latestInfoMessage)
+				} as MessageEvent);
+				messageHandler({
+					data: JSON.stringify(latestScoresResultsMessage)
 				} as MessageEvent);
 			}, 100);
 
@@ -92,6 +128,10 @@
 	function messageHandler(event: MessageEvent) {
 		let data = event.data as string;
 
+		if (!data || data === 'pong') {
+			return;
+		}
+
 		if (data.startsWith('TIMESYNC:')) {
 			const message = JSON.parse(data.replace('TIMESYNC:', ''));
 			if (message.result) {
@@ -101,6 +141,7 @@
 			}
 			return;
 		}
+
 		const message = JSON.parse(event.data);
 
 		if (
@@ -118,15 +159,208 @@
 
 		console.log(message);
 
-		if (message.index >= (latestMessage?.index || 0)) {
-			latestMessage = message;
+		switch (message.type) {
+			case 'SHOW_PREVIEW':
+			case 'SHOW_MATCH':
+			case 'START_MATCH':
+			case 'ABORT_MATCH':
+				if (message.index < (latestInfoMessage?.index || 0)) {
+					return;
+				}
+				latestInfoMessage = message;
+				break;
+			case 'SCORE_UPDATE':
+			case 'SHOW_RESULTS':
+				if (message.index < (latestScoresResultsMessage?.index || 0)) {
+					return;
+				}
+				latestScoresResultsMessage = message;
+				break;
 		}
 
 		if (grace) {
 			return;
 		}
 
-		console.log('processed message', message);
+		switch (message.type) {
+			case 'SHOW_RESULTS':
+				results = createScoresFromMessage(message);
+
+				document.querySelectorAll('video').forEach((video) => {
+					video.pause();
+					video.currentTime = 0;
+				});
+
+				const blueTotal = results.blue.preFoulTotal + results.red.foulPointsCommitted;
+				const redTotal = results.red.preFoulTotal + results.blue.foulPointsCommitted;
+
+				if (blueTotal > redTotal) {
+					displayResultsVideo = DisplayResultsVideo.BLUE_WINS;
+					const video = document.getElementById('blue-wins-video') as HTMLVideoElement;
+					video.currentTime = 0;
+					video.play();
+				} else if (redTotal > blueTotal) {
+					displayResultsVideo = DisplayResultsVideo.RED_WINS;
+					const video = document.getElementById('red-wins-video') as HTMLVideoElement;
+					video.currentTime = 0;
+					video.play();
+				} else {
+					displayResultsVideo = DisplayResultsVideo.TIE;
+					const video = document.getElementById('tie-video') as HTMLVideoElement;
+					video.currentTime = 0;
+					video.play();
+				}
+
+				setTimeout(() => {
+					state = State.RESULTS;
+					resultsState = ResultsState.BASE;
+					displayResultsVideo = DisplayResultsVideo.NONE;
+					resultsAudio.currentTime = 0;
+					resultsAudio.play();
+				}, 7026);
+
+				break;
+			case 'SCORE_UPDATE':
+				scores = createScoresFromMessage(message);
+				break;
+			default:
+				info = createInfoFromMessage(message);
+
+				switch (message.type) {
+					case 'SHOW_PREVIEW':
+						if ((results?.ts || 0) + 20000 < message.ts) {
+							state = State.MATCH;
+							matchState = MatchState.PREVIEW;
+						} else {
+							state = State.RESULTS;
+							resultsState = ResultsState.UP_NEXT;
+							displayResultsVideo = DisplayResultsVideo.NONE;
+						}
+						break;
+					case 'SHOW_MATCH':
+						state = State.MATCH;
+						matchState = MatchState.AUTO;
+						break;
+					case 'START_MATCH':
+						state = State.MATCH;
+						matchState = MatchState.AUTO;
+						startMatch(info);
+						break;
+					case 'ABORT_MATCH':
+						state = State.MATCH;
+						matchState = MatchState.ABORTED;
+						abortMatch(info);
+						break;
+				}
+		}
+
+		console.log('processed message', message.index);
+	}
+
+	function startMatch(matchInfo: Info) {
+		const offsetMs = ts() - matchInfo.ts;
+		const offsetSec = Math.ceil(offsetMs / 1000);
+
+		if (offsetSec > 158) {
+			timer = 0;
+			matchState = MatchState.FINISHED;
+			return;
+		}
+
+		timer = 158 - offsetSec + 1;
+
+		if (offsetSec > 138) {
+			matchState = MatchState.ENDGAME;
+		} else if (offsetSec > 38) {
+			matchState = MatchState.TELEOP;
+		} else if (offsetSec > 30) {
+			matchState = MatchState.TRANSITION;
+		} else if (offsetSec > 20) {
+			matchState = MatchState.AUTO_END;
+		} else {
+			matchState = MatchState.AUTO;
+		}
+
+		if (offsetSec <= 1) {
+			matchStartAudio.currentTime = 0;
+			matchStartAudio.play();
+		}
+
+		const timeout = setTimeout(
+			() => {
+				if (info?.matchName != matchInfo.matchName || scores?.matchName != matchInfo.matchName) {
+					return;
+				}
+
+				timer--;
+				matchLoop();
+			},
+			offsetSec * 1000 - offsetMs
+		);
+
+		timeouts.push(timeout);
+	}
+
+	function matchLoop() {
+		interval = setInterval(() => {
+			if (timer > 0) {
+				timer--;
+			} else {
+				clearInterval(interval);
+			}
+
+			if (timer <= 20) {
+				if (matchState !== MatchState.ENDGAME) {
+					endgameAudio.currentTime = 0;
+					endgameAudio.play();
+				}
+
+				matchState = MatchState.ENDGAME;
+			} else if (timer <= 120) {
+				if (matchState !== MatchState.TELEOP) {
+					teleopStartAudio.currentTime = 0;
+					teleopStartAudio.play();
+				}
+
+				matchState = MatchState.TELEOP;
+			} else if (timer <= 128) {
+				if (matchState !== MatchState.TRANSITION) {
+					autoEndAudio.currentTime = 0;
+					autoEndAudio.play();
+
+					const controllersTimeout = setTimeout(() => {
+						pickUpControllersAudio.currentTime = 0;
+						pickUpControllersAudio.play();
+					}, 2000);
+					timeouts.push(controllersTimeout);
+
+					const countdownTimeout = setTimeout(() => {
+						threeTwoOneAudio.currentTime = 0;
+						threeTwoOneAudio.play();
+					}, 5000);
+					timeouts.push(countdownTimeout);
+				}
+
+				matchState = MatchState.TRANSITION;
+			} else if (timer <= 138) {
+				matchState = MatchState.AUTO_END;
+			} else {
+				matchState = MatchState.AUTO;
+			}
+		}, 1000);
+	}
+
+	function abortMatch(info: Info) {
+		if (ts() - info.ts < 500) {
+			clearInterval(interval);
+			interval = undefined;
+
+			timeouts.forEach((timeout) => clearTimeout(timeout));
+			timeouts = [];
+
+			abortAudio.currentTime = 0;
+			abortAudio.play();
+		}
 	}
 
 	function ts() {
@@ -139,70 +373,89 @@
 <div id="frame">
 	<div id="content" class="zstack">
 		<div id="backgrounds" class="zstack">
-			<img
-				id="logo"
-				src={layers.backgrounds.logo}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+			{#if state === State.MATCH && ![MatchState.PREVIEW, MatchState.ABORTED].includes(matchState)}
+				<img
+					id="match-base-darkening"
+					src={layers.backgrounds.matchBaseDarkening}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+			{/if}
 
-			<img
-				id="match-base-darkening"
-				src={layers.backgrounds.matchBaseDarkening}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+			{#if state === State.RESULTS}
+				<img
+					id="results-darkening"
+					src={layers.backgrounds.resultsDarkening}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+			{/if}
 
-			<img
-				id="results-darkening"
-				src={layers.backgrounds.resultsDarkening}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
-
-			<img
-				id="bottom-banner-darkening"
-				src={layers.backgrounds.bottomBannerDarkening}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+			{#if state === State.BANNER}
+				<img
+					id="bottom-banner-darkening"
+					src={layers.backgrounds.bottomBannerDarkening}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+			{/if}
 		</div>
 
 		<div id="overlays" class="zstack">
-			<img
-				id="base"
-				src={layers.overlays.base}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+			{#if state === State.MATCH}
+				<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+					<img id="base" src={layers.overlays.base} />
 
-			<img
-				id="match-base"
-				src={layers.overlays.matchBase}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+					{#if ![MatchState.PREVIEW, MatchState.ABORTED].includes(matchState)}
+						<img
+							id="match-base"
+							src={layers.overlays.matchBase}
+							in:fade={{ duration: 500 }}
+							out:fade={{ duration: 500 }}
+						/>
+					{/if}
 
-			<img
-				id="results"
-				src={layers.overlays.results}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+					<MatchStateBaseBanners bind:matchState />
 
-			<img
-				id="results-up-next"
-				src={layers.overlays.resultsUpNext}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+					<Timer bind:timer />
+				</div>
+			{/if}
 
-			<img
-				id="bottom-banner"
-				src={layers.overlays.bottomBanner}
-				in:fade={{ duration: 500 }}
-				out:fade={{ duration: 500 }}
-			/>
+			{#if state === State.RESULTS}
+				<img
+					id="results"
+					src={layers.overlays.results}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+
+				{#if resultsState === ResultsState.UP_NEXT}
+					<img
+						id="results-up-next"
+						src={layers.overlays.resultsUpNext}
+						in:fade={{ duration: 500 }}
+						out:fade={{ duration: 500 }}
+					/>
+				{/if}
+			{/if}
+
+			{#if state === State.BANNER}
+				<img
+					id="bottom-banner"
+					src={layers.overlays.bottomBanner}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+			{/if}
+
+			{#if state !== State.RESULTS}
+				<img
+					id="logo"
+					src={layers.backgrounds.logo}
+					in:fade={{ duration: 500 }}
+					out:fade={{ duration: 500 }}
+				/>
+			{/if}
 		</div>
 
 		<div id="videos" class="zstack">
@@ -260,16 +513,20 @@
 					transform: scale(calc(100vh / 2160px));
 				}
 			}
+		}
 
-			#overlays {
-				filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.5));
-			}
+		#backgrounds #results-darkening {
+			backdrop-filter: blur(32px);
+		}
 
-			#videos > * {
-				width: 100%;
-				height: 100%;
-				transition: opacity 500ms linear;
-			}
+		#overlays {
+			filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.5));
+		}
+
+		#videos > * {
+			width: 100%;
+			height: 100%;
+			transition: opacity 500ms linear;
 		}
 	}
 </style>

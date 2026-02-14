@@ -264,13 +264,13 @@
 			'Switcher initialized' + (isLive ? '' : ' (TEST MODE)') + (WS_URL ? '' : ' - no WebSocket')
 		);
 
-		return () => {
-			wsRef?.close();
-			broadcastChannel?.close();
-			clearInterval(timerInterval);
-			window.removeEventListener('keydown', handleKeydown);
-			if (pendingSwitchTimeout !== null) clearTimeout(pendingSwitchTimeout);
-		};
+		// return () => {
+		// 	wsRef?.close();
+		// 	broadcastChannel?.close();
+		// 	clearInterval(timerInterval);
+		// 	window.removeEventListener('keydown', handleKeydown);
+		// 	if (pendingSwitchTimeout !== null) clearTimeout(pendingSwitchTimeout);
+		// };
 	});
 </script>
 

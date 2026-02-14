@@ -16,6 +16,7 @@ import YellowFoulCardBadge from '$lib/assets/badges/foul-cards/yellow.webp';
 
 // Banners — General
 import UpNextBanner from '$lib/assets/banners/up-next.webp';
+import MatchAbortedBanner from '$lib/assets/banners/match-aborted.webp';
 
 // Banners — Game
 import LeaveGameBanner from '$lib/assets/banners/game/leave.webp';
@@ -125,6 +126,7 @@ export const badges = {
 
 export const banners = {
     upNext: UpNextBanner,
+    matchAborted: MatchAbortedBanner,
     game: {
         leave: LeaveGameBanner,
         rankingPoints: RankingPointsGameBanner,

@@ -28,7 +28,7 @@
 			player = mpegts.createPlayer({
 				type: 'mpegts',
 				url: url,
-				isLive: true,
+				isLive: true
 			});
 
 			player.attachMediaElement(video);
@@ -101,6 +101,7 @@
 			video {
 				width: 100vw;
 				height: calc(100vw / 16 * 9);
+				rotate: 180deg;
 			}
 
 			div {
