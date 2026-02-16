@@ -85,6 +85,7 @@
 					font-size: 72px;
 					font-weight: 600;
 					text-align: center;
+					letter-spacing: 2px;
 				}
 			}
 		}

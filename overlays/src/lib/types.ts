@@ -54,6 +54,7 @@ export type Scores = {
     matchName: string;
     blue: AllianceScores;
     red: AllianceScores;
+    eventHighScore: boolean
     blueTeams: Team[];
     redTeams: Team[];
 }
@@ -111,6 +112,7 @@ export function createScoresFromMessage(message: any): Scores {
             goalRP: message?.params?.redScores?.goalRP || false,
             patternRP: message?.params?.redScores?.patternRP || false,
         },
+        eventHighScore: message?.params?.blueHighScore || message?.params?.redHighScore || false,
         blueTeams: [
             {
                 number: message?.params?.blue?.teams[0]?.number,

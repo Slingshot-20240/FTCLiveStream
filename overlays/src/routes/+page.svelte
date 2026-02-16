@@ -21,6 +21,8 @@
 	import MatchScoreBadges from '$lib/MatchScoreBadges.svelte';
 	import MatchBaseEventInfo from '$lib/MatchBaseEventInfo.svelte';
 	import MatchBaseMatchName from '$lib/MatchBaseMatchName.svelte';
+	import ResultsBanners from '$lib/ResultsBanners.svelte';
+	import ResultsScoreboard from '$lib/ResultsScoreboard.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -252,6 +254,10 @@
 
 				switch (message.type) {
 					case 'SHOW_PREVIEW':
+						if (info.index < (results?.index || 0)) {
+							return;
+						}
+
 						if ((results?.ts || 0) + 27026 < ts()) {
 							state = State.MATCH;
 							matchState = MatchState.PREVIEW;
@@ -473,7 +479,11 @@
 
 					<Teams info={null} bind:results position="top" />
 
+					<ResultsBanners bind:results />
+
 					<img id="results" src={layers.overlays.results} />
+
+					<ResultsScoreboard bind:results />
 
 					{#if resultsState === ResultsState.UP_NEXT}
 						<div class="full-frame zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
