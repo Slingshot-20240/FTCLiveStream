@@ -39,3 +39,13 @@ body {
 .hidden {
 	opacity: 0;
 }
+
+.full-frame {
+	width: 3840px;
+	height: 2160px;
+}
+
+pos-block {
+	width: 3840px;
+	height: 2160px;
+}

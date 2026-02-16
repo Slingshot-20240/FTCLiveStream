@@ -3,7 +3,7 @@ export enum State {
 }
 
 export enum MatchState {
-    PREVIEW, AUTO, AUTO_END, TRANSITION, TELEOP, ENDGAME, FINISHED, ABORTED
+    PREVIEW, SHOW_MATCH, AUTO, AUTO_END, TRANSITION, TELEOP, ENDGAME, FINISHED, ABORTED
 }
 
 export enum ResultsState {

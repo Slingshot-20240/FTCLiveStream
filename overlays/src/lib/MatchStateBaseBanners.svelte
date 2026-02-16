@@ -5,33 +5,33 @@
 
 	import { banners } from '$lib/assets';
 	import { MatchState } from './states';
+	import type { Scores } from './types';
+	import MatchBaseAutoLeave from './MatchBaseAutoLeave.svelte';
+	import MatchBaseRankingPoints from './MatchBaseRankingPoints.svelte';
 
 	export let matchState: MatchState;
+	export let scores: Scores | null;
 </script>
 
 <!-- svelte-ignore a11y_missing_attribute -->
-<div id="match-state-base-banners">
-	{#if matchState === MatchState.PREVIEW}
+<div id="match-state-base-banners" class="full-frame">
+	{#if matchState < MatchState.SHOW_MATCH}
 		<img
 			id="preview-banner"
 			src={banners.upNext}
 			in:fade={{ duration: 500 }}
 			out:fade={{ duration: 500 }}
 		/>
-	{:else if [MatchState.AUTO, MatchState.AUTO_END, MatchState.TRANSITION].includes(matchState)}
-		<img
-			id="leave-banner"
-			src={banners.game.leave}
-			in:fade={{ duration: 500 }}
-			out:fade={{ duration: 500 }}
-		/>
-	{:else if [MatchState.TELEOP, MatchState.ENDGAME, MatchState.FINISHED].includes(matchState)}
-		<img
-			id="rp-banner"
-			src={banners.game.rankingPoints}
-			in:fade={{ duration: 500 }}
-			out:fade={{ duration: 500 }}
-		/>
+	{:else if matchState >= MatchState.SHOW_MATCH && matchState < MatchState.TELEOP}
+		<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+			<img id="leave-banner" src={banners.game.leave} />
+			<MatchBaseAutoLeave bind:scores />
+		</div>
+	{:else if matchState >= MatchState.TELEOP && matchState !== MatchState.ABORTED}
+		<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+			<img id="rp-banner" src={banners.game.rankingPoints} />
+			<MatchBaseRankingPoints bind:scores />
+		</div>
 	{:else if matchState === MatchState.ABORTED}
 		<img
 			id="aborted-banner"
@@ -43,15 +43,10 @@
 </div>
 
 <style>
-	#match-state-base-banners {
-		width: 3840px;
-		height: 2160px;
-
-		* {
-			position: absolute;
-			left: 1592px;
-			top: 160px;
-			filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
-		}
+	#match-state-base-banners > * {
+		position: absolute;
+		left: 1592px;
+		top: 160px;
+		filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.25));
 	}
 </style>

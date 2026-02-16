@@ -12,8 +12,15 @@
 	import { layers, audios, videos } from '$lib/assets';
 	import { BannerState, MatchState, ResultsState, State } from '$lib/states';
 
+	import '$lib/PositionBlock.svelte';
 	import MatchStateBaseBanners from '$lib/MatchStateBaseBanners.svelte';
 	import Timer from '$lib/Timer.svelte';
+	import TimerStateText from '$lib/TimerStateText.svelte';
+	import Teams from '$lib/Teams.svelte';
+	import Scoreboard from '$lib/Scoreboard.svelte';
+	import MatchScoreBadges from '$lib/MatchScoreBadges.svelte';
+	import MatchBaseEventInfo from '$lib/MatchBaseEventInfo.svelte';
+	import MatchBaseMatchName from '$lib/MatchBaseMatchName.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -29,6 +36,9 @@
 	let redWinsVideo: HTMLVideoElement;
 	let tieVideo: HTMLVideoElement;
 	let displayResultsVideo = DisplayResultsVideo.NONE as DisplayResultsVideo;
+
+	let eventRegion: string;
+	let eventLevel: string;
 
 	let grace = true;
 	let latestInfoMessage: any;
@@ -82,7 +92,9 @@
 
 		const params = new URLSearchParams(location.search);
 		const host = params.get('host');
-		const eventCode = params.get('eventCode');
+		const eventCode = params.get('code');
+		eventRegion = params.get('region') || '???';
+		eventLevel = params.get('level') || '???';
 
 		if (!host) {
 			alert('FTCLive WebSocket host not provided. Please provide a "host" query parameter.');
@@ -104,10 +116,10 @@
 			setTimeout(() => {
 				grace = false;
 				messageHandler({
-					data: JSON.stringify(latestInfoMessage)
+					data: JSON.stringify(latestScoresResultsMessage)
 				} as MessageEvent);
 				messageHandler({
-					data: JSON.stringify(latestScoresResultsMessage)
+					data: JSON.stringify(latestInfoMessage)
 				} as MessageEvent);
 			}, 100);
 
@@ -170,6 +182,12 @@
 				latestInfoMessage = message;
 				break;
 			case 'SCORE_UPDATE':
+				if (
+					message.params?.number < latestScoresResultsMessage?.params?.number &&
+					message.params?.tournamentLevel === latestScoresResultsMessage?.params?.tournamentLevel
+				) {
+					return;
+				}
 			case 'SHOW_RESULTS':
 				if (message.index < (latestScoresResultsMessage?.index || 0)) {
 					return;
@@ -191,33 +209,39 @@
 					video.currentTime = 0;
 				});
 
-				const blueTotal = results.blue.preFoulTotal + results.red.foulPointsCommitted;
-				const redTotal = results.red.preFoulTotal + results.blue.foulPointsCommitted;
+				if (ts() - results.ts < 500) {
+					const blueTotal = results.blue.preFoulTotal + results.red.foulPointsCommitted;
+					const redTotal = results.red.preFoulTotal + results.blue.foulPointsCommitted;
 
-				if (blueTotal > redTotal) {
-					displayResultsVideo = DisplayResultsVideo.BLUE_WINS;
-					const video = document.getElementById('blue-wins-video') as HTMLVideoElement;
-					video.currentTime = 0;
-					video.play();
-				} else if (redTotal > blueTotal) {
-					displayResultsVideo = DisplayResultsVideo.RED_WINS;
-					const video = document.getElementById('red-wins-video') as HTMLVideoElement;
-					video.currentTime = 0;
-					video.play();
+					if (blueTotal > redTotal) {
+						displayResultsVideo = DisplayResultsVideo.BLUE_WINS;
+						const video = document.getElementById('blue-wins-video') as HTMLVideoElement;
+						video.currentTime = 0;
+						video.play();
+					} else if (redTotal > blueTotal) {
+						displayResultsVideo = DisplayResultsVideo.RED_WINS;
+						const video = document.getElementById('red-wins-video') as HTMLVideoElement;
+						video.currentTime = 0;
+						video.play();
+					} else {
+						displayResultsVideo = DisplayResultsVideo.TIE;
+						const video = document.getElementById('tie-video') as HTMLVideoElement;
+						video.currentTime = 0;
+						video.play();
+					}
+
+					setTimeout(() => {
+						state = State.RESULTS;
+						resultsState = ResultsState.BASE;
+						displayResultsVideo = DisplayResultsVideo.NONE;
+						resultsAudio.currentTime = 0;
+						resultsAudio.play();
+					}, 7026);
 				} else {
-					displayResultsVideo = DisplayResultsVideo.TIE;
-					const video = document.getElementById('tie-video') as HTMLVideoElement;
-					video.currentTime = 0;
-					video.play();
-				}
-
-				setTimeout(() => {
 					state = State.RESULTS;
 					resultsState = ResultsState.BASE;
 					displayResultsVideo = DisplayResultsVideo.NONE;
-					resultsAudio.currentTime = 0;
-					resultsAudio.play();
-				}, 7026);
+				}
 
 				break;
 			case 'SCORE_UPDATE':
@@ -228,7 +252,7 @@
 
 				switch (message.type) {
 					case 'SHOW_PREVIEW':
-						if ((results?.ts || 0) + 20000 < message.ts) {
+						if ((results?.ts || 0) + 27026 < ts()) {
 							state = State.MATCH;
 							matchState = MatchState.PREVIEW;
 						} else {
@@ -239,7 +263,7 @@
 						break;
 					case 'SHOW_MATCH':
 						state = State.MATCH;
-						matchState = MatchState.AUTO;
+						matchState = MatchState.SHOW_MATCH;
 						break;
 					case 'START_MATCH':
 						state = State.MATCH;
@@ -303,10 +327,14 @@
 
 	function matchLoop() {
 		interval = setInterval(() => {
-			if (timer > 0) {
+			if (timer > 1) {
 				timer--;
 			} else {
+				timer--;
+				matchEndAudio.play();
+				matchState = MatchState.FINISHED;
 				clearInterval(interval);
+				return;
 			}
 
 			if (timer <= 20) {
@@ -402,9 +430,21 @@
 		</div>
 
 		<div id="overlays" class="zstack">
-			{#if state === State.MATCH}
+			{#if [State.MATCH, State.RESULTS].includes(state)}
 				<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
 					<img id="base" src={layers.overlays.base} />
+
+					<MatchBaseEventInfo bind:region={eventRegion} bind:level={eventLevel} />
+				</div>
+			{/if}
+
+			{#if state === State.MATCH}
+				<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+					<MatchBaseMatchName bind:info results={null} />
+
+					<Teams bind:info results={null} position="top" />
+
+					<MatchStateBaseBanners bind:matchState bind:scores />
 
 					{#if ![MatchState.PREVIEW, MatchState.ABORTED].includes(matchState)}
 						<img
@@ -415,28 +455,34 @@
 						/>
 					{/if}
 
-					<MatchStateBaseBanners bind:matchState />
+					{#if ![MatchState.PREVIEW, MatchState.ABORTED].includes(matchState)}
+						<MatchScoreBadges bind:matchState bind:scores />
 
-					<Timer bind:timer />
+						<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+							<Scoreboard bind:scores />
+							<Timer bind:timer bind:matchState />
+							<TimerStateText bind:matchState />
+						</div>
+					{/if}
 				</div>
 			{/if}
 
 			{#if state === State.RESULTS}
-				<img
-					id="results"
-					src={layers.overlays.results}
-					in:fade={{ duration: 500 }}
-					out:fade={{ duration: 500 }}
-				/>
+				<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+					<MatchBaseMatchName info={null} bind:results />
 
-				{#if resultsState === ResultsState.UP_NEXT}
-					<img
-						id="results-up-next"
-						src={layers.overlays.resultsUpNext}
-						in:fade={{ duration: 500 }}
-						out:fade={{ duration: 500 }}
-					/>
-				{/if}
+					<Teams info={null} bind:results position="top" />
+
+					<img id="results" src={layers.overlays.results} />
+
+					{#if resultsState === ResultsState.UP_NEXT}
+						<div class="full-frame zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+							<img id="results-up-next" src={layers.overlays.resultsUpNext} />
+
+							<Teams bind:info results={null} position="bottom" />
+						</div>
+					{/if}
+				</div>
 			{/if}
 
 			{#if state === State.BANNER}

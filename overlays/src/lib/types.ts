@@ -67,6 +67,7 @@ export function createScoresFromMessage(message: any): Scores {
             auto: {
                 classified: message?.params?.blueScores?.autoClassifiedArtifacts || 0,
                 overflow: message?.params?.blueScores?.autoOverflowArtifacts || 0,
+                motifs: (message?.params?.blueScores?.autoPatternPoints || 0) / 2,
                 robot1Leave: message?.params?.blueScores?.robot1Auto || false,
                 robot2Leave: message?.params?.blueScores?.robot2Auto || false,
             },
@@ -74,8 +75,9 @@ export function createScoresFromMessage(message: any): Scores {
                 classified: message?.params?.blueScores?.teleopClassifiedArtifacts || 0,
                 overflow: message?.params?.blueScores?.teleopOverflowArtifacts || 0,
                 depot: message?.params?.blueScores?.teleopDepotArtifacts || 0,
-                robot1Base: message?.params?.blueScores?.robot1Teleop || Base.NONE,
-                robot2Base: message?.params?.blueScores?.robot2Teleop || Base.NONE,
+                motifs: (message?.params?.blueScores?.teleopPatternPoints || 0) / 2,
+                robot1Base: parseBaseFromString(message?.params?.blueScores?.robot1Teleop || ''),
+                robot2Base: parseBaseFromString(message?.params?.blueScores?.robot2Teleop || ''),
             },
             minorFouls: message?.params?.blueScores?.minorFouls || 0,
             majorFouls: message?.params?.blueScores?.majorFouls || 0,
@@ -89,6 +91,7 @@ export function createScoresFromMessage(message: any): Scores {
             auto: {
                 classified: message?.params?.redScores?.autoClassifiedArtifacts || 0,
                 overflow: message?.params?.redScores?.autoOverflowArtifacts || 0,
+                motifs: (message?.params?.redScores?.autoPatternPoints || 0) / 2,
                 robot1Leave: message?.params?.redScores?.robot1Auto || false,
                 robot2Leave: message?.params?.redScores?.robot2Auto || false,
             },
@@ -96,8 +99,9 @@ export function createScoresFromMessage(message: any): Scores {
                 classified: message?.params?.redScores?.teleopClassifiedArtifacts || 0,
                 overflow: message?.params?.redScores?.teleopOverflowArtifacts || 0,
                 depot: message?.params?.redScores?.teleopDepotArtifacts || 0,
-                robot1Base: message?.params?.redScores?.robot1Teleop || Base.NONE,
-                robot2Base: message?.params?.redScores?.robot2Teleop || Base.NONE,
+                motifs: (message?.params?.redScores?.teleopPatternPoints || 0) / 2,
+                robot1Base: parseBaseFromString(message?.params?.redScores?.robot1Teleop || ''),
+                robot2Base: parseBaseFromString(message?.params?.redScores?.robot2Teleop || ''),
             },
             minorFouls: message?.params?.redScores?.minorFouls || 0,
             majorFouls: message?.params?.redScores?.majorFouls || 0,
@@ -157,6 +161,7 @@ export type AllianceScores = {
 export type AutoScores = {
     classified: number
     overflow: number
+    motifs: number
     robot1Leave: boolean
     robot2Leave: boolean
 }
@@ -165,12 +170,24 @@ export type TeleopScores = {
     classified: number
     overflow: number
     depot: number
+    motifs: number
     robot1Base: Base
     robot2Base: Base
 }
 
 export enum Base {
     NONE, PARTIAL, FULL
+}
+
+export function parseBaseFromString(base: string): Base {
+    switch (base) {
+        case 'PARTIAL':
+            return Base.PARTIAL;
+        case 'FULL':
+            return Base.FULL;
+        default:
+            return Base.NONE;
+    }
 }
 
 export type Team = {
@@ -183,4 +200,12 @@ export type Team = {
 
 export enum DisplayResultsVideo {
     NONE, BLUE_WINS, RED_WINS, TIE
+}
+
+export enum Alliance {
+    BLUE, RED
+}
+
+export enum NumericScoreBadgeType {
+    CLASSIFIED, OVERFLOW, DEPOT, PATTERN
 }
