@@ -3,9 +3,15 @@
 	import { fade } from 'svelte/transition';
 
 	import {
+		createAdvancementsFromMessage,
+		createAllianceSelectionFromMessage,
+		createAwardFromMessage,
 		createInfoFromMessage,
 		createScoresFromMessage,
 		DisplayResultsVideo,
+		type Advancements,
+		type AllianceSelection,
+		type Award,
 		type Info,
 		type Scores
 	} from '$lib/types';
@@ -47,6 +53,10 @@
 	let grace = true;
 	let latestInfoMessage: any;
 	let latestScoresResultsMessage: any;
+	let latestAllianceSelectionMessage: any;
+	let latestAwardMessage: any;
+	let latestAdvancementMessage: any;
+	let latestIndex: number = -1;
 
 	let state: State;
 	let matchState: MatchState;
@@ -56,6 +66,9 @@
 	let info: Info | null = null;
 	let scores: Scores | null = null;
 	let results: Scores | null = null;
+	let allianceSelection: AllianceSelection | null = null;
+	let award: Award | null = null;
+	let advancements: Advancements | null = null;
 
 	let ftcliveTs = Date.now();
 	let localMs = performance.now();
@@ -120,6 +133,15 @@
 			setTimeout(() => {
 				grace = false;
 				messageHandler({
+					data: JSON.stringify(latestAdvancementMessage)
+				} as MessageEvent);
+				messageHandler({
+					data: JSON.stringify(latestAwardMessage)
+				} as MessageEvent);
+				messageHandler({
+					data: JSON.stringify(latestAllianceSelectionMessage)
+				} as MessageEvent);
+				messageHandler({
 					data: JSON.stringify(latestScoresResultsMessage)
 				} as MessageEvent);
 				messageHandler({
@@ -160,6 +182,10 @@
 
 		const message = JSON.parse(event.data);
 
+		if (message.index < latestIndex) {
+			return;
+		}
+
 		if (
 			![
 				'SHOW_PREVIEW',
@@ -167,7 +193,10 @@
 				'START_MATCH',
 				'SCORE_UPDATE',
 				'ABORT_MATCH',
-				'SHOW_RESULTS'
+				'SHOW_RESULTS',
+				'SHOW_SELECTION',
+				'SHOW_AWARD',
+				'SHOW_ADVANCEMENT'
 			].includes(message.type)
 		) {
 			return;
@@ -198,6 +227,24 @@
 				}
 				latestScoresResultsMessage = message;
 				break;
+			case 'SHOW_SELECTION':
+				if (message.index < (latestAllianceSelectionMessage?.index || 0)) {
+					return;
+				}
+				latestAllianceSelectionMessage = message;
+				break;
+			case 'SHOW_AWARD':
+				if (message.index < (latestAwardMessage?.index || 0)) {
+					return;
+				}
+				latestAwardMessage = message;
+				break;
+			case 'SHOW_ADVANCEMENT':
+				if (message.index < (latestAdvancementMessage?.index || 0)) {
+					return;
+				}
+				latestAdvancementMessage = message;
+				break;
 		}
 
 		if (grace) {
@@ -205,6 +252,21 @@
 		}
 
 		switch (message.type) {
+			case 'SHOW_ADVANCEMENT':
+				advancements = createAdvancementsFromMessage(message);
+				state = State.BANNER;
+				bannerState = BannerState.PRESENTATION;
+				break;
+			case 'SHOW_AWARD':
+				award = createAwardFromMessage(message);
+				state = State.BANNER;
+				bannerState = BannerState.PRESENTATION;
+				break;
+			case 'SHOW_SELECTION':
+				allianceSelection = createAllianceSelectionFromMessage(message);
+				state = State.BANNER;
+				bannerState = BannerState.PRESENTATION;
+				break;
 			case 'SHOW_RESULTS':
 				results = createScoresFromMessage(message);
 
@@ -286,6 +348,7 @@
 				}
 		}
 
+		latestIndex = message.index;
 		console.log('processed message', message.index);
 	}
 
