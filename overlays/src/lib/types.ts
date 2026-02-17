@@ -19,6 +19,7 @@ export function createInfoFromMessage(message: any): Info {
                 name: message?.params?.blue?.teams[0]?.name || '???',
                 rank: message?.params?.blue?.teams[0]?.ranking || -99,
                 leagueRank: message?.params?.blue?.teams[0]?.leagueRanking || -99,
+                card: message?.params?.blue?.teams[0]?.carriesCard ? Card.YELLOW : Card.NONE,
                 location: message?.params?.blue?.teams[0]?.location || '???',
             },
             {
@@ -26,6 +27,7 @@ export function createInfoFromMessage(message: any): Info {
                 name: message?.params?.blue?.teams[1]?.name || '???',
                 rank: message?.params?.blue?.teams[1]?.ranking || -99,
                 leagueRank: message?.params?.blue?.teams[1]?.leagueRanking || -99,
+                card: message?.params?.blue?.teams[1]?.carriesCard ? Card.YELLOW : Card.NONE,
                 location: message?.params?.blue?.teams[1]?.location || '???',
             },
         ],
@@ -35,6 +37,7 @@ export function createInfoFromMessage(message: any): Info {
                 name: message?.params?.red?.teams[0]?.name || '???',
                 rank: message?.params?.red?.teams[0]?.ranking || -99,
                 leagueRank: message?.params?.red?.teams[0]?.leagueRanking || -99,
+                card: message?.params?.red?.teams[0]?.carriesCard ? Card.YELLOW : Card.NONE,
                 location: message?.params?.red?.teams[0]?.location || '???',
             },
             {
@@ -42,6 +45,7 @@ export function createInfoFromMessage(message: any): Info {
                 name: message?.params?.red?.teams[1]?.name || '???',
                 rank: message?.params?.red?.teams[1]?.ranking || -99,
                 leagueRank: message?.params?.red?.teams[1]?.leagueRanking || -99,
+                card: message?.params?.red?.teams[1]?.carriesCard ? Card.YELLOW : Card.NONE,
                 location: message?.params?.red?.teams[1]?.location || '???',
             },
         ],
@@ -87,6 +91,7 @@ export function createScoresFromMessage(message: any): Scores {
             movementRP: message?.params?.blueScores?.movementRP || false,
             goalRP: message?.params?.blueScores?.goalRP || false,
             patternRP: message?.params?.blueScores?.patternRP || false,
+            violations: message?.params?.blueScores?.violations || [],
         },
         red: {
             auto: {
@@ -111,6 +116,7 @@ export function createScoresFromMessage(message: any): Scores {
             movementRP: message?.params?.redScores?.movementRP || false,
             goalRP: message?.params?.redScores?.goalRP || false,
             patternRP: message?.params?.redScores?.patternRP || false,
+            violations: message?.params?.redScores?.violations || [],
         },
         eventHighScore: message?.params?.blueHighScore || message?.params?.redHighScore || false,
         blueTeams: [
@@ -119,6 +125,7 @@ export function createScoresFromMessage(message: any): Scores {
                 name: message?.params?.blue?.teams[0]?.name || '???',
                 rank: message?.params?.blue?.teams[0]?.ranking || -99,
                 leagueRank: message?.params?.blue?.teams[0]?.leagueRanking || -99,
+                card: message?.params?.blue?.teams[0]?.card || Card.NONE,
                 location: message?.params?.blue?.teams[0]?.location || '???',
             },
             {
@@ -126,6 +133,7 @@ export function createScoresFromMessage(message: any): Scores {
                 name: message?.params?.blue?.teams[1]?.name || '???',
                 rank: message?.params?.blue?.teams[1]?.ranking || -99,
                 leagueRank: message?.params?.blue?.teams[1]?.leagueRanking || -99,
+                card: message?.params?.blue?.teams[1]?.card || Card.NONE,
                 location: message?.params?.blue?.teams[1]?.location || '???',
             },
         ],
@@ -135,6 +143,7 @@ export function createScoresFromMessage(message: any): Scores {
                 name: message?.params?.red?.teams[0]?.name || '???',
                 rank: message?.params?.red?.teams[0]?.ranking || -99,
                 leagueRank: message?.params?.red?.teams[0]?.leagueRanking || -99,
+                card: message?.params?.red?.teams[0]?.card || Card.NONE,
                 location: message?.params?.red?.teams[0]?.location || '???',
             },
             {
@@ -142,6 +151,7 @@ export function createScoresFromMessage(message: any): Scores {
                 name: message?.params?.red?.teams[1]?.name || '???',
                 rank: message?.params?.red?.teams[1]?.ranking || -99,
                 leagueRank: message?.params?.red?.teams[1]?.leagueRanking || -99,
+                card: message?.params?.red?.teams[1]?.card || Card.NONE,
                 location: message?.params?.red?.teams[1]?.location || '???',
             },
         ],
@@ -158,6 +168,7 @@ export type AllianceScores = {
     movementRP: boolean
     goalRP: boolean
     patternRP: boolean
+    violations: Violation[]
 }
 
 export type AutoScores = {
@@ -192,12 +203,28 @@ export function parseBaseFromString(base: string): Base {
     }
 }
 
+export enum Violation {
+    G417A = "G417.A",
+    G418A = "G418.A",
+    G418B = "G418.B",
+    G419B = "G419.B",
+    G206 = "G206",
+    G431C = "G431.C"
+}
+
 export type Team = {
     number: string;
     name: string;
     rank: number;
     leagueRank: number;
+    card: Card;
     location: string;
+}
+
+export enum Card {
+    NONE = 0,
+    YELLOW = 1,
+    RED = 2
 }
 
 export enum DisplayResultsVideo {

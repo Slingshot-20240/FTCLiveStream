@@ -8,8 +8,6 @@
 	export let scores: Scores | null;
 
 	const base = icons.locations;
-
-	$: console.log(scores?.red?.teleop?.robot1Base === Base.FULL);
 </script>
 
 <!-- svelte-ignore a11y_missing_attribute -->

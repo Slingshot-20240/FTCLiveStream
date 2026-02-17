@@ -23,6 +23,8 @@
 	import MatchBaseMatchName from '$lib/MatchBaseMatchName.svelte';
 	import ResultsBanners from '$lib/ResultsBanners.svelte';
 	import ResultsScoreboard from '$lib/ResultsScoreboard.svelte';
+	import ResultsViolations from '$lib/ResultsViolations.svelte';
+	import Cards from '$lib/Cards.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -441,6 +443,8 @@
 					<img id="base" src={layers.overlays.base} />
 
 					<MatchBaseEventInfo bind:region={eventRegion} bind:level={eventLevel} />
+
+					<Cards bind:state bind:info bind:results />
 				</div>
 			{/if}
 
@@ -478,6 +482,8 @@
 					<MatchBaseMatchName info={null} bind:results />
 
 					<Teams info={null} bind:results position="top" />
+
+					<ResultsViolations bind:results />
 
 					<ResultsBanners bind:results />
 
