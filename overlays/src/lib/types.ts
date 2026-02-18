@@ -249,6 +249,7 @@ export interface AllianceSelection {
     index: number;
     ts: number;
     alliances: Team[][];
+    teamsPerAlliance: number;
     picking: number;
     finished: boolean;
 }
@@ -274,6 +275,7 @@ export function createAllianceSelectionFromMessage(message: any): AllianceSelect
         index: message.index,
         ts: message.ts,
         alliances: alliances,
+        teamsPerAlliance: message?.params?.state?.teamsPerAlliance || 2,
         picking: picking,
         finished: message?.params?.state?.immutable || picking >= alliances.length || false,
     }
@@ -340,7 +342,10 @@ export interface Advancements {
 }
 
 export function createAdvancementsFromMessage(message: any): Advancements {
-    const teams: Team[] = message?.params?.list.map((data: any) => {
+    const teamsList = message?.params?.list;
+    const count = message?.params?.config?.advancementCount || teamsList.count || Infinity;
+
+    const teams: Team[] = teamsList?.slice(0, count).map((data: any) => {
         const team = data?.points?.teamData
 
         const locArray: string[] = [team?.city, team?.state, team?.country].filter((loc) => loc);
@@ -358,7 +363,7 @@ export function createAdvancementsFromMessage(message: any): Advancements {
         index: message.index,
         ts: message.ts,
         advancingTo: message?.params?.config?.advancesTo || '???',
-        count: message?.params?.config?.advancementCount || Infinity,
+        count: count,
         teams: teams,
         presenting: message?.params?.index || -1,
     }

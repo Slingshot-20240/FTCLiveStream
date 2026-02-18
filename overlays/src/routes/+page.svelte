@@ -31,6 +31,7 @@
 	import ResultsScoreboard from '$lib/ResultsScoreboard.svelte';
 	import ResultsViolations from '$lib/ResultsViolations.svelte';
 	import Cards from '$lib/Cards.svelte';
+	import AllianceSelectionBanner from '$lib/AllianceSelectionBanner.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -47,6 +48,8 @@
 	let tieVideo: HTMLVideoElement;
 	let displayResultsVideo = DisplayResultsVideo.NONE as DisplayResultsVideo;
 
+	let host: string;
+	let eventCode: string;
 	let eventRegion: string;
 	let eventLevel: string;
 
@@ -78,6 +81,8 @@
 	let interval: NodeJS.Timeout | undefined;
 	let timeouts: NodeJS.Timeout[] = [];
 
+	let showPitDisplay = true;
+
 	onMount(() => {
 		matchStartAudio = new Audio(audios.matchStart);
 		autoEndAudio = new Audio(audios.autoEnd);
@@ -108,22 +113,25 @@
 		tieVideo.load();
 
 		const params = new URLSearchParams(location.search);
-		const host = params.get('host');
-		const eventCode = params.get('code');
+		const unsafeHost = params.get('host');
+		const unsafeEventCode = params.get('code');
 		eventRegion = params.get('region') || '???';
 		eventLevel = params.get('level') || '???';
 
-		if (!host) {
+		if (!unsafeHost) {
 			alert('FTCLive WebSocket host not provided. Please provide a "host" query parameter.');
 			return;
 		}
 
-		if (!eventCode) {
+		if (!unsafeEventCode) {
 			alert(
 				'FTCLive WebSocket event code not provided. Please provide an "eventCode" query parameter.'
 			);
 			return;
 		}
+
+		host = unsafeHost;
+		eventCode = unsafeEventCode;
 
 		const wsUrl = `ws://${host}/stream/display/command/?code=${eventCode}`;
 		let ws = new WebSocket(wsUrl);
@@ -132,21 +140,11 @@
 			grace = true;
 			setTimeout(() => {
 				grace = false;
-				messageHandler({
-					data: JSON.stringify(latestAdvancementMessage)
-				} as MessageEvent);
-				messageHandler({
-					data: JSON.stringify(latestAwardMessage)
-				} as MessageEvent);
-				messageHandler({
-					data: JSON.stringify(latestAllianceSelectionMessage)
-				} as MessageEvent);
-				messageHandler({
-					data: JSON.stringify(latestScoresResultsMessage)
-				} as MessageEvent);
-				messageHandler({
-					data: JSON.stringify(latestInfoMessage)
-				} as MessageEvent);
+				processMessage(latestAdvancementMessage);
+				processMessage(latestAwardMessage);
+				processMessage(latestAllianceSelectionMessage);
+				processMessage(latestScoresResultsMessage);
+				processMessage(latestInfoMessage);
 			}, 100);
 
 			ws.send(`TIMESYNC:{"jsonrpc":"2.0","id":${timeSyncId},"method":"timesync"}`);
@@ -231,6 +229,19 @@
 				if (message.index < (latestAllianceSelectionMessage?.index || 0)) {
 					return;
 				}
+
+				let lhs = JSON.parse(JSON.stringify(latestAllianceSelectionMessage || {}));
+				let rhs = JSON.parse(JSON.stringify(message));
+
+				lhs.index = 0;
+				lhs.ts = 0;
+				rhs.index = 0;
+				rhs.ts = 0;
+
+				if (JSON.stringify(lhs) === JSON.stringify(rhs)) {
+					return;
+				}
+
 				latestAllianceSelectionMessage = message;
 				break;
 			case 'SHOW_AWARD':
@@ -247,25 +258,27 @@
 				break;
 		}
 
-		if (grace) {
-			return;
-		}
+		if (grace) return;
 
+		processMessage(message);
+	}
+
+	function processMessage(message: any) {
 		switch (message.type) {
 			case 'SHOW_ADVANCEMENT':
 				advancements = createAdvancementsFromMessage(message);
 				state = State.BANNER;
-				bannerState = BannerState.PRESENTATION;
+				bannerState = BannerState.ADVANCEMENTS;
 				break;
 			case 'SHOW_AWARD':
 				award = createAwardFromMessage(message);
 				state = State.BANNER;
-				bannerState = BannerState.PRESENTATION;
+				bannerState = BannerState.AWARDS;
 				break;
 			case 'SHOW_SELECTION':
 				allianceSelection = createAllianceSelectionFromMessage(message);
 				state = State.BANNER;
-				bannerState = BannerState.PRESENTATION;
+				bannerState = BannerState.ALLIANCE_SELECTION;
 				break;
 			case 'SHOW_RESULTS':
 				results = createScoresFromMessage(message);
@@ -565,12 +578,16 @@
 			{/if}
 
 			{#if state === State.BANNER}
-				<img
-					id="bottom-banner"
-					src={layers.overlays.bottomBanner}
-					in:fade={{ duration: 500 }}
-					out:fade={{ duration: 500 }}
-				/>
+				<div class="zstack" in:fade={{ duration: 500 }} out:fade={{ duration: 500 }}>
+					<img id="bottom-banner" src={layers.overlays.bottomBanner} />
+
+					{#if bannerState === BannerState.ALLIANCE_SELECTION}
+						<AllianceSelectionBanner
+							bind:as={allianceSelection}
+							eventName={eventRegion + ' ' + eventLevel}
+						/>
+					{/if}
+				</div>
 			{/if}
 
 			{#if state !== State.RESULTS}
@@ -605,6 +622,12 @@
 				class:hidden={displayResultsVideo != DisplayResultsVideo.TIE}
 			></video>
 		</div>
+
+		<iframe
+			src="http://{host}/event/{eventCode}/display/?type=pit"
+			frameborder="0"
+			class:hidden={!showPitDisplay}
+		></iframe>
 	</div>
 </div>
 
@@ -651,6 +674,10 @@
 		#videos > * {
 			width: 100%;
 			height: 100%;
+			transition: opacity 500ms linear;
+		}
+
+		iframe {
 			transition: opacity 500ms linear;
 		}
 	}

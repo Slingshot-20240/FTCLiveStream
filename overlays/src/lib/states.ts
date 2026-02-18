@@ -11,5 +11,5 @@ export enum ResultsState {
 }
 
 export enum BannerState {
-    TEXT, PRESENTATION
+    TEXT, ALLIANCE_SELECTION, AWARDS, ADVANCEMENTS
 }
