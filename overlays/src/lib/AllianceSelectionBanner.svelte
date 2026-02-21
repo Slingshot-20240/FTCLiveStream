@@ -122,6 +122,7 @@
 					}
 
 					.details {
+						max-width: 532px;
 						display: flex;
 						flex-direction: column;
 						gap: 8px;
@@ -165,7 +166,7 @@
 
 			.title {
 				display: flex;
-				gap: 16px;
+				gap: 24px;
 			}
 
 			h3 {

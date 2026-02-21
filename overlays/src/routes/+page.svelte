@@ -32,6 +32,8 @@
 	import ResultsViolations from '$lib/ResultsViolations.svelte';
 	import Cards from '$lib/Cards.svelte';
 	import AllianceSelectionBanner from '$lib/AllianceSelectionBanner.svelte';
+	import AwardsBanner from '$lib/AwardsBanner.svelte';
+	import AdvancementsBanner from '$lib/AdvancementsBanner.svelte';
 
 	let matchStartAudio: HTMLAudioElement;
 	let autoEndAudio: HTMLAudioElement;
@@ -81,7 +83,7 @@
 	let interval: NodeJS.Timeout | undefined;
 	let timeouts: NodeJS.Timeout[] = [];
 
-	let showPitDisplay = true;
+	let showPitDisplay = false;
 
 	onMount(() => {
 		matchStartAudio = new Audio(audios.matchStart);
@@ -180,9 +182,7 @@
 
 		const message = JSON.parse(event.data);
 
-		if (message.index < latestIndex) {
-			return;
-		}
+		if (message.index < latestIndex) return;
 
 		if (
 			![
@@ -264,6 +264,9 @@
 	}
 
 	function processMessage(message: any) {
+		if (!message) return;
+		if (message.index < latestIndex) return;
+
 		switch (message.type) {
 			case 'SHOW_ADVANCEMENT':
 				advancements = createAdvancementsFromMessage(message);
@@ -586,6 +589,10 @@
 							bind:as={allianceSelection}
 							eventName={eventRegion + ' ' + eventLevel}
 						/>
+					{:else if bannerState === BannerState.AWARDS}
+						<AwardsBanner bind:award eventName={eventRegion + ' ' + eventLevel} />
+					{:else if bannerState === BannerState.ADVANCEMENTS}
+						<AdvancementsBanner bind:advancements eventName={eventRegion + ' ' + eventLevel} />
 					{/if}
 				</div>
 			{/if}
@@ -664,6 +671,7 @@
 		}
 
 		#backgrounds #results-darkening {
+			background-color: rgba(0, 0, 0, 0.8);
 			backdrop-filter: blur(32px);
 		}
 

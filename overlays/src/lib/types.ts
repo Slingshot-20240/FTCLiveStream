@@ -289,11 +289,11 @@ export interface Award {
     name: string;
     isTeamAward: boolean;
     winners: AwardWinner[];
-    presenting: number[];
+    presenting: number;
 }
 
 export function createAwardFromMessage(message: any): Award {
-    const isTeamAward = message?.params?.award?.isTeamAward || true;
+    const isTeamAward = message?.params?.award?.isTeamAward;
 
     const winners: AwardWinner[] = message?.params?.assignments.map((assignment: any) => {
         if (isTeamAward) {
@@ -303,7 +303,7 @@ export function createAwardFromMessage(message: any): Award {
                     number: assignment?.teamNumber || '???',
                     name: assignment?.teamName || '???',
                     card: Card.NONE,
-                    location: assignment?.teamLocation || '???',
+                    location: assignment?.teamLocation || '',
                 }
             }
         }
@@ -338,7 +338,7 @@ export interface Advancements {
     advancingTo: string;
     count: number;
     teams: Team[];
-    presenting: number[];
+    presenting: number;
 }
 
 export function createAdvancementsFromMessage(message: any): Advancements {
@@ -365,6 +365,6 @@ export function createAdvancementsFromMessage(message: any): Advancements {
         advancingTo: message?.params?.config?.advancesTo || '???',
         count: count,
         teams: teams,
-        presenting: message?.params?.index || -1,
+        presenting: message?.params?.index,
     }
 }
