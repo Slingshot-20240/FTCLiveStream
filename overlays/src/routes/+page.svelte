@@ -55,6 +55,8 @@
 	let eventRegion: string;
 	let eventLevel: string;
 
+	let ws: WebSocket;
+
 	let grace = true;
 	let latestInfoMessage: any;
 	let latestScoresResultsMessage: any;
@@ -135,8 +137,11 @@
 		host = unsafeHost;
 		eventCode = unsafeEventCode;
 
-		const wsUrl = `ws://${host}/stream/display/command/?code=${eventCode}`;
-		let ws = new WebSocket(wsUrl);
+		wsConnect(`ws://${host}/stream/display/command/?code=${eventCode}`);
+	});
+
+	function wsConnect(url: string) {
+		ws = new WebSocket(url);
 
 		ws.onopen = () => {
 			grace = true;
@@ -159,9 +164,12 @@
 		ws.onmessage = messageHandler;
 
 		ws.onclose = () => {
-			location.reload();
+			setTimeout(() => {
+				wsConnect(url);
+				console.log('websocket disconnected, attempting to reconnect...');
+			}, 1000);
 		};
-	});
+	}
 
 	function messageHandler(event: MessageEvent) {
 		let data = event.data as string;
