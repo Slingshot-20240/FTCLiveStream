@@ -4,9 +4,9 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev --port 17113",
+		"dev": "vite dev --port 17113 --host",
 		"build": "vite build",
-		"preview": "vite preview --port 17113",
+		"preview": "vite preview --port 17113 --host",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -32,5 +32,8 @@
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.53.1",
 		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"obs-websocket-js": "^5.0.7"
 	}
 }

@@ -137,6 +137,7 @@
 		host = unsafeHost;
 		eventCode = unsafeEventCode;
 
+		while (!host);
 		wsConnect(`ws://${host}/stream/display/command/?code=${eventCode}`);
 	});
 

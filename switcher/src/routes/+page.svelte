@@ -1,18 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
+	import OBSWebSocket from 'obs-websocket-js';
 
 	// config
 	let obsMode: boolean = true;
 	const RESULTS_DELAY_MS = 20_000;
 	const TRANSITION_DURATION_MS = 1000;
 	let WS_URL: string = '';
+	let OBS_URL: string = '';
+	let OBS_PASSWORD: string = '';
+	
+	// obs ws
+	let obs: OBSWebSocket;
 
 	// camera urls - editable via UI or preset via URL params
 	let field1Url = $state('');
 	let field2Url = $state('');
 
-	
 	// derived: are we in test mode (no urls) or live mode (urls provided)
 	let isLive = $derived(field1Url.trim() !== '' && field2Url.trim() !== '');
 
@@ -45,18 +49,11 @@
 		timerDisplay = Math.ceil(msUntilResultsDelayExpires() / 1000);
 	}
 
-	function skipTimerTo2s() {
-		if (resultsShownAt === null) {
-			addLog('No timer running');
-			return;
-		}
-		resultsShownAt = Date.now() - (RESULTS_DELAY_MS - 2000);
-		addLog('Timer skipped to 2s');
-	}
-
 	// does the actual camera switch with fade transition
 	function switchTo(targetField: string) {
 		addLog(`switchTo called: target=${targetField}, active=${activeCamera}`);
+
+		obs.call('SetCurrentProgramScene', {sceneName: CAMERA_COLORS[targetField].label});
 
 		if (targetField === activeCamera) {
 			addLog(`Already on ${targetField}, skipping`);
@@ -210,17 +207,34 @@
 		}
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		const urlParams = new URLSearchParams(location.search);
 		obsMode = urlParams.get('obs') === 'true';
-		field1Url = decodeURIComponent(urlParams.get('field1') ?? '');
-		field2Url = decodeURIComponent(urlParams.get('field2') ?? '');
+		field1Url = decodeURIComponent(urlParams.get('field1') ?? 'about:blank');
+		field2Url = decodeURIComponent(urlParams.get('field2') ?? 'about:blank');
 		WS_URL = urlParams.get('ws') ?? 'ws://localhost/stream/display/command/?code=ustxcrlt1';
+		OBS_URL = urlParams.get('obsUrl') ?? 'ws://localhost:4455';
+		OBS_PASSWORD = urlParams.get('obsPassword') ?? 'gq6HvwqxwGdFpIrE';
+
+		obs = new OBSWebSocket();
+		
+		try {
+			const { obsWebSocketVersion, negotiatedRpcVersion } = await obs.connect(
+				OBS_URL,
+				OBS_PASSWORD,
+				{
+					rpcVersion: 1
+				}
+			);
+			console.log(`Connected to server ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`);
+		} catch (error: any) {
+			console.error('Failed to connect', error.code, error.message);
+		}
 
 		// init cameras after a short delay to ensure refs are bound
 		setTimeout(initCameras, 100);
 
-		const timerInterval = setInterval(updateTimerDisplay, 100);
+		setInterval(updateTimerDisplay, 100);
 
 		// broadcast channel for syncing across tabs
 		broadcastChannel = new BroadcastChannel('ftc-switcher');
