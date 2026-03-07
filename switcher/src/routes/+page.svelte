@@ -22,8 +22,8 @@
 
 	// cameras config
 	const CAMERA_COLORS: Record<string, { color: string; label: string }> = {
-		field1: { color: '#e74c3c', label: 'Field 1' },
-		field2: { color: '#3498db', label: 'Field 2' }
+		field1: { color: '#e74c3c', label: 'Current Division Field 1' },
+		field2: { color: '#3498db', label: 'Current Division Field 2' }
 	};
 
 	// state

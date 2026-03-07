@@ -57,7 +57,7 @@
 					<h2 class="team-name">{names.blue[0]}</h2>
 				{/if}
 			</div>
-			<h2 class="team-rank">{ranks.blue[0]}</h2>
+			<h2 class="team-rank">{(ranks.blue[0] || 0) > 0 ? ranks.blue[0] : 'NP'}</h2>
 		</div>
 
 		<div class="team-group">
@@ -72,13 +72,13 @@
 					<h2 class="team-name">{names.blue[1]}</h2>
 				{/if}
 			</div>
-			<h2 class="team-rank">{ranks.blue[1]}</h2>
+			<h2 class="team-rank">{(ranks.blue[1] || 0) > 0 ? ranks.blue[1] : 'NP'}</h2>
 		</div>
 	</div>
 
 	<div class="alliance-group">
 		<div class="team-group">
-			<h2 class="team-rank">{ranks.red[0]}</h2>
+			<h2 class="team-rank">{(ranks.red[0] || 0) > 0 ? ranks.red[0] : 'NP'}</h2>
 			<div class="team-number-and-name" class:marquee={marquee.red[0]}>
 				{#if names.red[0].length > 20}
 					<Marquee fade={true}>
@@ -93,7 +93,7 @@
 		</div>
 
 		<div class="team-group">
-			<h2 class="team-rank">{ranks.red[1]}</h2>
+			<h2 class="team-rank">{(ranks.red[1] || 0) > 0 ? ranks.red[1] : 'NP'}</h2>
 			<div class="team-number-and-name" class:marquee={marquee.red[1]}>
 				{#if names.red[1].length > 20}
 					<Marquee fade={true}>
