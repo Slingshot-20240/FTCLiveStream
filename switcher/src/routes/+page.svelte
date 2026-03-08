@@ -215,6 +215,8 @@
 		WS_URL = urlParams.get('ws') ?? 'ws://localhost/stream/display/command/?code=ustxcrlt1';
 		OBS_URL = urlParams.get('obsUrl') ?? 'ws://localhost:4455';
 		OBS_PASSWORD = urlParams.get('obsPassword') ?? 'gq6HvwqxwGdFpIrE';
+		CAMERA_COLORS['field1'].label = urlParams.get('field1') ?? CAMERA_COLORS['field1'].label;
+		CAMERA_COLORS['field2'].label = urlParams.get('field2') ?? CAMERA_COLORS['field2'].label;
 
 		obs = new OBSWebSocket();
 		

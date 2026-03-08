@@ -228,6 +228,7 @@
 				) {
 					return;
 				}
+			// eslint-disable-next-line no-fallthrough
 			case 'SHOW_RESULTS':
 				if (message.index < (latestScoresResultsMessage?.index || 0)) {
 					return;
@@ -235,7 +236,7 @@
 				latestScoresResultsMessage = message;
 				break;
 			case 'SHOW_SELECTION':
-				if (message.index < (latestAllianceSelectionMessage?.index || 0)) {
+				{ if (message.index < (latestAllianceSelectionMessage?.index || 0)) {
 					return;
 				}
 
@@ -252,7 +253,7 @@
 				}
 
 				latestAllianceSelectionMessage = message;
-				break;
+				break; }
 			case 'SHOW_AWARD':
 				if (message.index < (latestAwardMessage?.index || 0)) {
 					return;
