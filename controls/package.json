@@ -37,6 +37,7 @@
 	},
 	"dependencies": {
 		"lucide-svelte": "^1.0.1",
+		"mpegts.js": "^1.8.0",
 		"vanilla-tilt": "^1.8.1",
 		"vanilla-tilt-svelte": "^1.0.4"
 	}
