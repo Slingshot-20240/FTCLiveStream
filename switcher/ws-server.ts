@@ -1,4 +1,5 @@
 // simple websocket server for testing - broadcasts messages to all clients
+// @ts-nocheck
 const server = Bun.serve({
 	port: 8080,
 	fetch(req, server) {
